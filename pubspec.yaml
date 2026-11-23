@@ -3,7 +3,7 @@ description: Aplikasi Safari Maulid Karesidenan Madiun - membuka website https:/
 publish_to: 'none'
 
 # 1.1.0 = versi tampil. versionCode otomatis = nomor build GitHub.
-version: 1.5.2+9
+version: 1.5.3+10
 
 environment:
   sdk: '>=3.4.0 <4.0.0'
@@ -28,6 +28,6 @@ flutter_launcher_icons:
   android: true
   ios: false
   image_path: "assets/icon.png"
-  adaptive_icon_background: "#000000"
+  adaptive_icon_background: "#6B1010"
   adaptive_icon_foreground: "assets/icon_fg.png"
   min_sdk_android: 21
