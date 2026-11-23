@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 
@@ -6,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Alamat website. Semua isi diambil dari website ini (online),
@@ -25,8 +27,9 @@ const Color kCream = Color(0xFFFBF7EF);
 const Color kInk = Color(0xFF2B2118);
 const Color kMuted = Color(0xFF85745F);
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await Atur.i.muat();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
     statusBarIconBrightness: Brightness.light,
@@ -41,22 +44,179 @@ class SafariMaulidApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Safari Maulid',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: kMaroon, primary: kMaroon),
-        scaffoldBackgroundColor: kCream,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: kMaroon,
-          foregroundColor: Colors.white,
-          titleTextStyle: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
-        ),
-      ),
-      home: const HalamanUtama(),
+    return ListenableBuilder(
+      listenable: Atur.i,
+      builder: (context, _) {
+        final t = Atur.i.tema;
+        return MaterialApp(
+          title: 'Safari Maulid',
+          debugShowCheckedModeBanner: false,
+          theme: ThemeData(
+            useMaterial3: true,
+            colorScheme: ColorScheme.fromSeed(seedColor: t.utama, primary: t.utama),
+            scaffoldBackgroundColor: kCream,
+            appBarTheme: AppBarTheme(
+              backgroundColor: t.utama,
+              foregroundColor: Colors.white,
+              titleTextStyle: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white),
+            ),
+          ),
+          home: const HalamanUtama(),
+        );
+      },
     );
   }
+}
+
+// =====================================================================
+// PENGATURAN (tersimpan di HP masing-masing)
+// =====================================================================
+class Tema {
+  final String nama;
+  final Color utama, terang, gelap, aksen;
+  const Tema(this.nama, this.utama, this.terang, this.gelap, this.aksen);
+}
+
+const List<Tema> kTema = [
+  Tema('Merah marun', kMaroon, kMaroon2, kMaroonDeep, kGold),
+  Tema('Hijau', Color(0xFF0F5C3A), Color(0xFF1B7A50), Color(0xFF07331F), kGold),
+  Tema('Biru', Color(0xFF123F75), Color(0xFF1E5CA3), Color(0xFF0A2445), kGold),
+  Tema('Coklat', Color(0xFF5B3A1E), Color(0xFF7A5230), Color(0xFF33200F), kGold),
+  Tema('Hitam', Color(0xFF222222), Color(0xFF3A3A3A), Color(0xFF0E0E0E), kGold),
+];
+
+/// Bagian-bagian halaman depan (kode, nama).
+const List<(String, String)> kBagian = [
+  ('jam', 'Jam & tanggal'),
+  ('jalan', 'Tulisan berjalan jadwal hari ini'),
+  ('menu', 'Menu utama'),
+  ('kitab', 'Pilihan kitab'),
+  ('ikuti', 'Ikuti kami (YouTube, Instagram, Website)'),
+];
+
+class Atur extends ChangeNotifier {
+  Atur._();
+  static final Atur i = Atur._();
+  SharedPreferences? _p;
+
+  // halaman depan
+  List<String> urutanBagian = [for (final b in kBagian) b.$1];
+  Set<String> bagianSembunyi = {};
+  List<String> urutanMenu = [for (final m in kMenu) m.judul];
+  Set<String> menuSembunyi = {};
+  int kolom = 3;
+  // warna & ukuran
+  int temaKe = 0;
+  double skalaHuruf = 1.0;
+  double skalaIkon = 1.0;
+  double kecepatanJalan = 1.0;
+  // halaman web
+  int webZoom = 100;
+  bool webTerjemah = true;
+  int webHurufArab = 30;
+  int webGulir = 50;
+  bool webTasbih = true;
+  int cap = 0; // berubah setiap pengaturan web disimpan
+
+  Tema get tema => kTema[temaKe.clamp(0, kTema.length - 1)];
+
+  List<String> _rapikan(List<String>? simpan, List<String> semua) {
+    final hasil = <String>[for (final x in simpan ?? const <String>[]) if (semua.contains(x)) x];
+    for (final x in semua) {
+      if (!hasil.contains(x)) hasil.add(x);
+    }
+    return hasil;
+  }
+
+  Future<void> muat() async {
+    try {
+      final p = _p = await SharedPreferences.getInstance();
+      urutanBagian = _rapikan(p.getStringList('urutanBagian'), [for (final b in kBagian) b.$1]);
+      bagianSembunyi = (p.getStringList('bagianSembunyi') ?? const <String>[]).toSet();
+      urutanMenu = _rapikan(p.getStringList('urutanMenu'), [for (final m in kMenu) m.judul]);
+      menuSembunyi = (p.getStringList('menuSembunyi') ?? const <String>[]).toSet();
+      kolom = p.getInt('kolom') ?? 3;
+      temaKe = p.getInt('tema') ?? 0;
+      skalaHuruf = p.getDouble('skalaHuruf') ?? 1.0;
+      skalaIkon = p.getDouble('skalaIkon') ?? 1.0;
+      kecepatanJalan = p.getDouble('kecepatanJalan') ?? 1.0;
+      webZoom = p.getInt('webZoom') ?? 100;
+      webTerjemah = p.getBool('webTerjemah') ?? true;
+      webHurufArab = p.getInt('webHurufArab') ?? 30;
+      webGulir = p.getInt('webGulir') ?? 50;
+      webTasbih = p.getBool('webTasbih') ?? true;
+      cap = p.getInt('cap') ?? 0;
+    } catch (_) {}
+  }
+
+  /// Ubah pengaturan, simpan ke HP, lalu tampilan diperbarui.
+  void ubah(void Function(Atur a) f, {bool web = false}) {
+    f(this);
+    if (web) cap = DateTime.now().millisecondsSinceEpoch;
+    notifyListeners();
+    _simpan();
+  }
+
+  Future<void> _simpan() async {
+    final p = _p;
+    if (p == null) return;
+    await p.setStringList('urutanBagian', urutanBagian);
+    await p.setStringList('bagianSembunyi', bagianSembunyi.toList());
+    await p.setStringList('urutanMenu', urutanMenu);
+    await p.setStringList('menuSembunyi', menuSembunyi.toList());
+    await p.setInt('kolom', kolom);
+    await p.setInt('tema', temaKe);
+    await p.setDouble('skalaHuruf', skalaHuruf);
+    await p.setDouble('skalaIkon', skalaIkon);
+    await p.setDouble('kecepatanJalan', kecepatanJalan);
+    await p.setInt('webZoom', webZoom);
+    await p.setBool('webTerjemah', webTerjemah);
+    await p.setInt('webHurufArab', webHurufArab);
+    await p.setInt('webGulir', webGulir);
+    await p.setBool('webTasbih', webTasbih);
+    await p.setInt('cap', cap);
+  }
+
+  void kembalikanAwal() {
+    urutanBagian = [for (final b in kBagian) b.$1];
+    bagianSembunyi = {};
+    urutanMenu = [for (final m in kMenu) m.judul];
+    menuSembunyi = {};
+    kolom = 3;
+    temaKe = 0;
+    skalaHuruf = 1.0;
+    skalaIkon = 1.0;
+    kecepatanJalan = 1.0;
+    webZoom = 100;
+    webTerjemah = true;
+    webHurufArab = 30;
+    webGulir = 50;
+    webTasbih = true;
+    cap = DateTime.now().millisecondsSinceEpoch;
+    notifyListeners();
+    _simpan();
+  }
+
+  List<Menu> get menuTampil => [
+        for (final j in urutanMenu)
+          if (!menuSembunyi.contains(j)) ...kMenu.where((m) => m.judul == j),
+      ];
+
+  /// Skrip yang dipasang di halaman web: menerapkan pilihan kitab (terjemah, ukuran huruf Arab,
+  /// kecepatan gulir) sekali setiap pengaturan diubah, dan menyembunyikan penghitung tasbih.
+  String get skripWeb => """
+(function () {
+  try {
+    if (localStorage.getItem('sm_app_set') !== '$cap') {
+      localStorage.setItem('sm_tr', '${webTerjemah ? 1 : 0}');
+      localStorage.setItem('sm_fs', '$webHurufArab');
+      localStorage.setItem('sm_gulir', '$webGulir');
+      localStorage.setItem('sm_app_set', '$cap');
+    }
+  } catch (e) {}
+  ${webTasbih ? '' : "document.addEventListener('DOMContentLoaded', function () { var s = document.createElement('style'); s.textContent = '.tasbih{display:none!important}'; document.head.appendChild(s); });"}
+})();
+""";
 }
 
 // =====================================================================
@@ -225,121 +385,129 @@ class _HalamanUtamaState extends State<HalamanUtama> {
 
   @override
   Widget build(BuildContext context) {
-    final top = MediaQuery.of(context).padding.top;
-    return PopScope(
-      canPop: false,
-      onPopInvokedWithResult: (didPop, _) {
-        if (didPop) return;
-        final now = DateTime.now();
-        if (_kembali == null || now.difference(_kembali!) > const Duration(seconds: 2)) {
-          _kembali = now;
-          ScaffoldMessenger.of(context)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(const SnackBar(content: Text('Tekan sekali lagi untuk keluar'), behavior: SnackBarBehavior.floating));
-          return;
-        }
-        SystemNavigator.pop();
-      },
-      child: Scaffold(
-        body: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            // ---------- kepala ----------
-            MediaQuery.withClampedTextScaling(
-              maxScaleFactor: 1.15,
+    return ListenableBuilder(listenable: Atur.i, builder: (context, _) => _bangun(context));
+  }
+
+  Widget _bangun(BuildContext context) {
+    final a = Atur.i;
+    final t = a.tema;
+    final mq = MediaQuery.of(context);
+    final top = mq.padding.top;
+    final tampil = a.urutanBagian.where((b) => !a.bagianSembunyi.contains(b)).toList();
+
+    // ---------- kepala (logo, nama, tombol pengaturan, jam) ----------
+    final kepala = MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.15,
+      child: Container(
+        padding: EdgeInsets.fromLTRB(14, top + 8, 6, 10),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(colors: [t.terang, t.utama, t.gelap], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        ),
+        child: Column(children: [
+          Row(children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset('assets/logo.png', width: 44, height: 44, fit: BoxFit.cover),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Safari Maulid', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, height: 1.1)),
+                const SizedBox(height: 2),
+                Text('KARESIDENAN MADIUN', maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: t.aksen, fontSize: 10, letterSpacing: 1.8, fontWeight: FontWeight.w700)),
+              ]),
+            ),
+            IconButton(
+              tooltip: 'Pengaturan',
+              icon: const Icon(Icons.settings_rounded, color: Colors.white),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const HalamanPengaturan())),
+            ),
+          ]),
+          if (tampil.contains('jam')) ...[
+            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.only(right: 8),
               child: Container(
-                padding: EdgeInsets.fromLTRB(14, top + 8, 14, 10),
-                decoration: const BoxDecoration(
-                  gradient: LinearGradient(colors: [kMaroon2, kMaroon, kMaroonDeep], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: t.aksen.withValues(alpha: 0.3)),
                 ),
-                child: Column(children: [
-                  Row(children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.asset('assets/logo.png', width: 44, height: 44, fit: BoxFit.cover),
-                    ),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Text('Safari Maulid', maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, height: 1.1)),
-                        SizedBox(height: 2),
-                        Text('KARESIDENAN MADIUN', maxLines: 1, overflow: TextOverflow.ellipsis,
-                            style: TextStyle(color: kGold, fontSize: 10, letterSpacing: 1.8, fontWeight: FontWeight.w700)),
-                      ]),
-                    ),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                    Text('${_dua(_wib.hour)}:${_dua(_wib.minute)}:${_dua(_wib.second)}',
+                        style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1, fontFeatures: [FontFeature.tabularFigures()])),
+                    const SizedBox(width: 3),
+                    Text('WIB', style: TextStyle(color: t.aksen, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1)),
+                    Container(width: 1, height: 16, margin: const EdgeInsets.symmetric(horizontal: 10), color: t.aksen.withValues(alpha: 0.5)),
+                    Text('${_hari[_wib.weekday - 1]}, ${_wib.day} ${_bulan[_wib.month - 1]} ${_wib.year}',
+                        style: const TextStyle(color: Color(0xFFF1DCD2), fontWeight: FontWeight.w600, fontSize: 13)),
                   ]),
-                  const SizedBox(height: 8),
+                ),
+              ),
+            ),
+          ],
+        ]),
+      ),
+    );
+
+    Widget? bagian(String kode) {
+      switch (kode) {
+        case 'jalan':
+          return Material(
+            color: t.aksen,
+            child: InkWell(
+              onTap: _bukaJadwalHariIni,
+              child: SizedBox(
+                height: 34,
+                child: Row(children: [
                   Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withValues(alpha: 0.22),
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: kGold.withValues(alpha: 0.3)),
-                    ),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-                        Text('${_dua(_wib.hour)}:${_dua(_wib.minute)}:${_dua(_wib.second)}',
-                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1, fontFeatures: [FontFeature.tabularFigures()])),
-                        const SizedBox(width: 3),
-                        const Text('WIB', style: TextStyle(color: kGold, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1)),
-                        Container(width: 1, height: 16, margin: const EdgeInsets.symmetric(horizontal: 10), color: kGold.withValues(alpha: 0.5)),
-                        Text('${_hari[_wib.weekday - 1]}, ${_wib.day} ${_bulan[_wib.month - 1]} ${_wib.year}',
-                            style: const TextStyle(color: Color(0xFFF1DCD2), fontWeight: FontWeight.w600, fontSize: 13)),
-                      ]),
+                    color: t.gelap,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                    alignment: Alignment.center,
+                    child: Icon(Icons.campaign_rounded, color: t.aksen, size: 20),
+                  ),
+                  Expanded(
+                    child: _TeksBerjalan(
+                      teks: _teksJalan(),
+                      kecepatan: a.kecepatanJalan,
+                      gaya: TextStyle(color: t.gelap, fontWeight: FontWeight.w800, fontSize: 13),
                     ),
                   ),
                 ]),
               ),
             ),
-
-            // ---------- tulisan berjalan: jadwal hari ini ----------
-            Material(
-              color: kGold,
-              child: InkWell(
-                onTap: _bukaJadwalHariIni,
-                child: SizedBox(
-                  height: 34,
-                  child: Row(children: [
-                    Container(
-                      color: kMaroonDeep,
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.campaign_rounded, color: kGold, size: 20),
-                    ),
-                    Expanded(
-                      child: _TeksBerjalan(
-                        teks: _teksJalan(),
-                        gaya: const TextStyle(color: kMaroonDeep, fontWeight: FontWeight.w800, fontSize: 13),
-                      ),
-                    ),
-                  ]),
-                ),
-              ),
-            ),
-
-            // ---------- menu utama ----------
+          );
+        case 'menu':
+          final menu = a.menuTampil;
+          if (menu.isEmpty) return null;
+          final rasio = (a.kolom == 4 ? 1.0 : 1.35) / ((a.skalaHuruf + a.skalaIkon) / 2);
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const _Judul('Menu Utama'),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: GridView.count(
                 padding: EdgeInsets.zero,
-                crossAxisCount: 3,
+                crossAxisCount: a.kolom,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 mainAxisSpacing: 8,
                 crossAxisSpacing: 8,
-                childAspectRatio: 1.35,
-                children: [for (final m in kMenu) _KotakMenu(menu: m)],
+                childAspectRatio: rasio,
+                children: [for (final m in menu) _KotakMenu(menu: m)],
               ),
             ),
-
-            // ---------- kitab ----------
+          ]);
+        case 'kitab':
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const _Judul('Kitab'),
             SizedBox(
-              height: 44,
+              height: 44 * a.skalaHuruf,
               child: ListView.separated(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -360,7 +528,7 @@ class _HalamanUtamaState extends State<HalamanUtama> {
                           border: Border.all(color: const Color(0xFFE8DCC6)),
                         ),
                         child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          const Icon(Icons.menu_book_rounded, color: kMaroon, size: 18),
+                          Icon(Icons.menu_book_rounded, color: t.utama, size: 18 * a.skalaIkon),
                           const SizedBox(width: 6),
                           Text(k.$2, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kInk)),
                         ]),
@@ -377,8 +545,9 @@ class _HalamanUtamaState extends State<HalamanUtama> {
                     style: TextStyle(color: kMuted, fontSize: 11.5, letterSpacing: .5)),
               ),
             ),
-
-            // ---------- tautan ----------
+          ]);
+        case 'ikuti':
+          return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const _Judul('Ikuti Kami'),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -387,15 +556,49 @@ class _HalamanUtamaState extends State<HalamanUtama> {
                 const SizedBox(width: 8),
                 Expanded(child: _Tautan(ikon: Icons.camera_alt_rounded, label: 'Instagram', warna: const [Color(0xFFFD5949), Color(0xFFD6249F), Color(0xFF285AEB)], onTap: () => bukaLuar(kInstagram))),
                 const SizedBox(width: 8),
-                Expanded(child: _Tautan(ikon: Icons.language_rounded, label: 'Website', warna: const [kMaroon2, kMaroonDeep], onTap: () => bukaLuar(kWeb))),
+                Expanded(child: _Tautan(ikon: Icons.language_rounded, label: 'Website', warna: [t.terang, t.gelap], onTap: () => bukaLuar(kWeb))),
               ]),
             ),
-            const SizedBox(height: 14),
-            const Center(
-              child: Text('Tim Safari Maulid · safarimaulid.web.id', style: TextStyle(color: kMuted, fontSize: 11.5)),
-            ),
-            SizedBox(height: 12 + MediaQuery.of(context).padding.bottom),
-          ],
+          ]);
+      }
+      return null;
+    }
+
+    final isi = <Widget>[kepala];
+    for (final kode in tampil) {
+      if (kode == 'jam') continue; // jam ada di dalam kepala
+      final w = bagian(kode);
+      if (w != null) isi.add(w);
+    }
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        final now = DateTime.now();
+        if (_kembali == null || now.difference(_kembali!) > const Duration(seconds: 2)) {
+          _kembali = now;
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(const SnackBar(content: Text('Tekan sekali lagi untuk keluar'), behavior: SnackBarBehavior.floating));
+          return;
+        }
+        SystemNavigator.pop();
+      },
+      child: Scaffold(
+        body: MediaQuery(
+          data: mq.copyWith(textScaler: TextScaler.linear(a.skalaHuruf)),
+          child: ListView(
+            padding: EdgeInsets.zero,
+            children: [
+              ...isi,
+              const SizedBox(height: 14),
+              const Center(
+                child: Text('Tim Safari Maulid · safarimaulid.web.id', style: TextStyle(color: kMuted, fontSize: 11.5)),
+              ),
+              SizedBox(height: 12 + mq.padding.bottom),
+            ],
+          ),
         ),
       ),
     );
@@ -423,33 +626,34 @@ class _KotakMenu extends StatelessWidget {
   const _KotakMenu({required this.menu});
   @override
   Widget build(BuildContext context) {
+    final t = Atur.i.tema;
+    final k = Atur.i.skalaIkon;
     final login = menu.judul == 'Login';
     return Material(
-      color: login ? kMaroon : Colors.white,
-      borderRadius: BorderRadius.circular(18),
-      elevation: 0,
+      color: login ? t.utama : Colors.white,
+      borderRadius: BorderRadius.circular(16),
       child: InkWell(
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(16),
         onTap: () => bukaHalaman(context, menu.alamat, menu.judul),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: login ? kMaroon : const Color(0xFFE8DCC6)),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: login ? t.utama : const Color(0xFFE8DCC6)),
           ),
           child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
             Container(
-              width: 40,
-              height: 40,
+              width: 40 * k,
+              height: 40 * k,
               decoration: BoxDecoration(
                 gradient: login
                     ? const LinearGradient(colors: [kGold, kGold2])
-                    : const LinearGradient(colors: [kMaroon2, kMaroon], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(12),
+                    : LinearGradient(colors: [t.terang, t.utama], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                borderRadius: BorderRadius.circular(12 * k),
               ),
-              child: Icon(menu.ikon, color: login ? kMaroonDeep : kGold, size: 22),
+              child: Icon(menu.ikon, color: login ? t.gelap : t.aksen, size: 22 * k),
             ),
             const SizedBox(height: 5),
-            Text(menu.judul,
+            Text(menu.judul, maxLines: 1, overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 12.5, color: login ? Colors.white : kInk)),
           ]),
         ),
@@ -486,7 +690,8 @@ class _Tautan extends StatelessWidget {
 class _TeksBerjalan extends StatefulWidget {
   final String teks;
   final TextStyle gaya;
-  const _TeksBerjalan({required this.teks, required this.gaya});
+  final double kecepatan;
+  const _TeksBerjalan({required this.teks, required this.gaya, this.kecepatan = 1.0});
   @override
   State<_TeksBerjalan> createState() => _TeksBerjalanState();
 }
@@ -508,7 +713,7 @@ class _TeksBerjalanState extends State<_TeksBerjalan> {
     _t = Timer.periodic(const Duration(milliseconds: 30), (_) {
       if (!_gulir.hasClients) return;
       final w = _lebar;
-      _pos += 1.1;
+      _pos += 1.1 * widget.kecepatan;
       if (_pos >= w) _pos -= w;
       _gulir.jumpTo(_pos.clamp(0.0, _gulir.position.maxScrollExtent));
     });
@@ -617,6 +822,369 @@ class _KartuJadwal extends StatelessWidget {
         ],
       ]),
     );
+  }
+}
+
+// =====================================================================
+// HALAMAN PENGATURAN
+// =====================================================================
+class HalamanPengaturan extends StatelessWidget {
+  const HalamanPengaturan({super.key});
+
+  static const _namaKecepatan = {25: 'Lambat', 50: 'Sedang', 80: 'Cepat'};
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: Atur.i,
+      builder: (context, _) {
+        final a = Atur.i;
+        final t = a.tema;
+        return Scaffold(
+          appBar: AppBar(title: const Text('Pengaturan')),
+          body: ListView(padding: const EdgeInsets.only(bottom: 24), children: [
+            // ---------------- bagian halaman depan
+            const _JudulAtur('Bagian halaman depan', 'Geser ☰ untuk mengubah urutan, matikan untuk menyembunyikan.'),
+            _Kartu(
+              child: ReorderableListView(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                onReorder: (lama, baru) => a.ubah((x) {
+                  if (baru > lama) baru--;
+                  final b = x.urutanBagian.removeAt(lama);
+                  x.urutanBagian.insert(baru, b);
+                }),
+                children: [
+                  for (var i = 0; i < a.urutanBagian.length; i++)
+                    _BarisUrut(
+                      key: ValueKey('b_${a.urutanBagian[i]}'),
+                      index: i,
+                      judul: kBagian.firstWhere((b) => b.$1 == a.urutanBagian[i]).$2,
+                      aktif: !a.bagianSembunyi.contains(a.urutanBagian[i]),
+                      warna: t.utama,
+                      onUbah: (v) => a.ubah((x) {
+                        if (v) {
+                          x.bagianSembunyi.remove(x.urutanBagian[i]);
+                        } else {
+                          x.bagianSembunyi.add(x.urutanBagian[i]);
+                        }
+                      }),
+                    ),
+                ],
+              ),
+            ),
+
+            // ---------------- menu utama
+            const _JudulAtur('Menu utama', 'Atur menu yang tampil, urutan, dan jumlah kolom.'),
+            _Kartu(
+              child: Column(children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 12, 14, 4),
+                  child: Row(children: [
+                    const Expanded(child: Text('Jumlah kolom', style: TextStyle(fontWeight: FontWeight.w600))),
+                    SegmentedButton<int>(
+                      segments: const [ButtonSegment(value: 3, label: Text('3')), ButtonSegment(value: 4, label: Text('4'))],
+                      selected: {a.kolom},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (v) => a.ubah((x) => x.kolom = v.first),
+                    ),
+                  ]),
+                ),
+                ReorderableListView(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  buildDefaultDragHandles: false,
+                  onReorder: (lama, baru) => a.ubah((x) {
+                    if (baru > lama) baru--;
+                    final m = x.urutanMenu.removeAt(lama);
+                    x.urutanMenu.insert(baru, m);
+                  }),
+                  children: [
+                    for (var i = 0; i < a.urutanMenu.length; i++)
+                      _BarisUrut(
+                        key: ValueKey('m_${a.urutanMenu[i]}'),
+                        index: i,
+                        judul: a.urutanMenu[i],
+                        ikon: kMenu.firstWhere((m) => m.judul == a.urutanMenu[i]).ikon,
+                        aktif: !a.menuSembunyi.contains(a.urutanMenu[i]),
+                        warna: t.utama,
+                        onUbah: (v) => a.ubah((x) {
+                          if (v) {
+                            x.menuSembunyi.remove(x.urutanMenu[i]);
+                          } else {
+                            x.menuSembunyi.add(x.urutanMenu[i]);
+                          }
+                        }),
+                      ),
+                  ],
+                ),
+              ]),
+            ),
+
+            // ---------------- warna & ukuran
+            const _JudulAtur('Warna & ukuran', 'Berlaku untuk halaman depan dan bilah judul aplikasi.'),
+            _Kartu(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Warna utama', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 10, runSpacing: 10, children: [
+                    for (var i = 0; i < kTema.length; i++)
+                      InkWell(
+                        borderRadius: BorderRadius.circular(30),
+                        onTap: () => a.ubah((x) => x.temaKe = i),
+                        child: Column(children: [
+                          Container(
+                            width: 40,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: LinearGradient(colors: [kTema[i].terang, kTema[i].gelap]),
+                              border: Border.all(color: a.temaKe == i ? kGold2 : Colors.transparent, width: 3),
+                            ),
+                            child: a.temaKe == i ? const Icon(Icons.check_rounded, color: Colors.white, size: 20) : null,
+                          ),
+                          const SizedBox(height: 3),
+                          Text(kTema[i].nama, style: const TextStyle(fontSize: 11)),
+                        ]),
+                      ),
+                  ]),
+                  const SizedBox(height: 10),
+                  _Geser(
+                    judul: 'Ukuran tulisan',
+                    nilai: a.skalaHuruf,
+                    min: 0.85,
+                    max: 1.3,
+                    bagi: 9,
+                    label: '${(a.skalaHuruf * 100).round()}%',
+                    warna: t.utama,
+                    onUbah: (v) => a.ubah((x) => x.skalaHuruf = v),
+                  ),
+                  _Geser(
+                    judul: 'Ukuran ikon menu',
+                    nilai: a.skalaIkon,
+                    min: 0.8,
+                    max: 1.4,
+                    bagi: 12,
+                    label: '${(a.skalaIkon * 100).round()}%',
+                    warna: t.utama,
+                    onUbah: (v) => a.ubah((x) => x.skalaIkon = v),
+                  ),
+                  _Geser(
+                    judul: 'Kecepatan tulisan berjalan',
+                    nilai: a.kecepatanJalan,
+                    min: 0.5,
+                    max: 3.0,
+                    bagi: 10,
+                    label: '${a.kecepatanJalan.toStringAsFixed(2)}x',
+                    warna: t.utama,
+                    onUbah: (v) => a.ubah((x) => x.kecepatanJalan = v),
+                  ),
+                ]),
+              ),
+            ),
+
+            // ---------------- tampilan web
+            const _JudulAtur('Tampilan halaman (jadwal, kitab, galeri, dll.)',
+                'Berlaku saat halaman dibuka berikutnya.'),
+            _Kartu(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 12, 14, 6),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  _Geser(
+                    judul: 'Ukuran teks halaman',
+                    nilai: a.webZoom.toDouble(),
+                    min: 80,
+                    max: 150,
+                    bagi: 14,
+                    label: '${a.webZoom}%',
+                    warna: t.utama,
+                    onUbah: (v) => a.ubah((x) => x.webZoom = v.round(), web: true),
+                  ),
+                  _Geser(
+                    judul: 'Ukuran huruf Arab kitab',
+                    nilai: a.webHurufArab.toDouble(),
+                    min: 20,
+                    max: 48,
+                    bagi: 14,
+                    label: '${a.webHurufArab}',
+                    warna: t.utama,
+                    onUbah: (v) => a.ubah((x) => x.webHurufArab = v.round(), web: true),
+                  ),
+                  Row(children: [
+                    const Expanded(child: Text('Kecepatan gulir otomatis kitab', style: TextStyle(fontWeight: FontWeight.w600))),
+                    SegmentedButton<int>(
+                      segments: [
+                        for (final e in _namaKecepatan.entries) ButtonSegment(value: e.key, label: Text(e.value)),
+                      ],
+                      selected: {a.webGulir},
+                      showSelectedIcon: false,
+                      style: const ButtonStyle(visualDensity: VisualDensity.compact),
+                      onSelectionChanged: (v) => a.ubah((x) => x.webGulir = v.first, web: true),
+                    ),
+                  ]),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Tampilkan terjemah kitab', style: TextStyle(fontWeight: FontWeight.w600)),
+                    value: a.webTerjemah,
+                    activeTrackColor: t.utama,
+                    onChanged: (v) => a.ubah((x) => x.webTerjemah = v, web: true),
+                  ),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Tampilkan penghitung tasbih', style: TextStyle(fontWeight: FontWeight.w600)),
+                    subtitle: const Text('Butir tasbih & tombol Hitung di bacaan berulang'),
+                    value: a.webTasbih,
+                    activeTrackColor: t.utama,
+                    onChanged: (v) => a.ubah((x) => x.webTasbih = v, web: true),
+                  ),
+                ]),
+              ),
+            ),
+
+            const SizedBox(height: 14),
+            Center(
+              child: TextButton.icon(
+                style: TextButton.styleFrom(foregroundColor: t.utama),
+                icon: const Icon(Icons.restart_alt_rounded),
+                label: const Text('Kembalikan ke pengaturan awal'),
+                onPressed: () async {
+                  final ok = await showDialog<bool>(
+                    context: context,
+                    builder: (c) => AlertDialog(
+                      title: const Text('Kembalikan pengaturan?'),
+                      content: const Text('Semua tampilan akan kembali seperti awal.'),
+                      actions: [
+                        TextButton(onPressed: () => Navigator.pop(c, false), child: const Text('Batal')),
+                        FilledButton(onPressed: () => Navigator.pop(c, true), child: const Text('Kembalikan')),
+                      ],
+                    ),
+                  );
+                  if (ok == true) a.kembalikanAwal();
+                },
+              ),
+            ),
+          ]),
+        );
+      },
+    );
+  }
+}
+
+class _JudulAtur extends StatelessWidget {
+  final String judul;
+  final String ket;
+  const _JudulAtur(this.judul, this.ket);
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(18, 18, 18, 8),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(judul, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800, color: kInk)),
+        const SizedBox(height: 2),
+        Text(ket, style: const TextStyle(fontSize: 12, color: kMuted)),
+      ]),
+    );
+  }
+}
+
+class _Kartu extends StatelessWidget {
+  final Widget child;
+  const _Kartu({required this.child});
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8DCC6)),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: child,
+    );
+  }
+}
+
+class _BarisUrut extends StatelessWidget {
+  final int index;
+  final String judul;
+  final IconData? ikon;
+  final bool aktif;
+  final Color warna;
+  final ValueChanged<bool> onUbah;
+  const _BarisUrut({
+    super.key,
+    required this.index,
+    required this.judul,
+    this.ikon,
+    required this.aktif,
+    required this.warna,
+    required this.onUbah,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.white,
+      child: ListTile(
+        dense: true,
+        leading: ReorderableDragStartListener(
+          index: index,
+          child: const Padding(
+            padding: EdgeInsets.all(6),
+            child: Icon(Icons.drag_handle_rounded, color: kMuted),
+          ),
+        ),
+        title: Row(children: [
+          if (ikon != null) ...[Icon(ikon, size: 18, color: aktif ? warna : kMuted), const SizedBox(width: 8)],
+          Expanded(
+            child: Text(judul,
+                style: TextStyle(fontWeight: FontWeight.w600, color: aktif ? kInk : kMuted)),
+          ),
+        ]),
+        trailing: Switch(value: aktif, activeTrackColor: warna, onChanged: onUbah),
+      ),
+    );
+  }
+}
+
+class _Geser extends StatelessWidget {
+  final String judul;
+  final double nilai;
+  final double min;
+  final double max;
+  final int bagi;
+  final String label;
+  final Color warna;
+  final ValueChanged<double> onUbah;
+  const _Geser({
+    required this.judul,
+    required this.nilai,
+    required this.min,
+    required this.max,
+    required this.bagi,
+    required this.label,
+    required this.warna,
+    required this.onUbah,
+  });
+  @override
+  Widget build(BuildContext context) {
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text(judul, style: const TextStyle(fontWeight: FontWeight.w600))),
+        Text(label, style: TextStyle(color: warna, fontWeight: FontWeight.w800)),
+      ]),
+      Slider(
+        value: nilai.clamp(min, max),
+        min: min,
+        max: max,
+        divisions: bagi,
+        activeColor: warna,
+        onChanged: onUbah,
+      ),
+    ]);
   }
 }
 
@@ -748,6 +1316,9 @@ class _HalamanWebState extends State<HalamanWeb> {
             InAppWebView(
               initialUrlRequest: URLRequest(url: WebUri(widget.alamat)),
               pullToRefreshController: _tarik,
+              initialUserScripts: UnmodifiableListView<UserScript>([
+                UserScript(source: Atur.i.skripWeb, injectionTime: UserScriptInjectionTime.AT_DOCUMENT_START),
+              ]),
               initialSettings: InAppWebViewSettings(
                 javaScriptEnabled: true,
                 domStorageEnabled: true,
@@ -761,6 +1332,7 @@ class _HalamanWebState extends State<HalamanWeb> {
                 displayZoomControls: false,
                 cacheEnabled: true,
                 allowFileAccess: true,
+                textZoom: Atur.i.webZoom,
                 applicationNameForUserAgent: kUa,
               ),
               onWebViewCreated: (c) => _web = c,
