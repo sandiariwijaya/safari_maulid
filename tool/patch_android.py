@@ -71,4 +71,46 @@ else:
 
 open(g_path, "w", encoding="utf-8").write(g)
 print(g_path, "OK")
+
+
+# ---------- MainActivity: saluran "safarimaulid/layar" agar layar tetap menyala di halaman kitab
+import glob
+akt = [f for f in glob.glob("android/app/src/main/**/MainActivity.*", recursive=True) if f.endswith((".kt", ".java"))]
+if akt:
+    path = akt[0]
+    src = open(path, encoding="utf-8").read()
+    paket = re.search(r"^package\s+([\w.]+)", src, re.M).group(1)
+    kt_path = os.path.splitext(path)[0] + ".kt"
+    if path != kt_path:
+        os.remove(path)
+    open(kt_path, "w", encoding="utf-8").write(f"""package {paket}
+
+import android.view.WindowManager
+import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
+
+class MainActivity : FlutterActivity() {{
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {{
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "safarimaulid/layar")
+            .setMethodCallHandler {{ call, result ->
+                if (call.method == "nyala") {{
+                    val nyala = call.arguments as? Boolean ?: false
+                    runOnUiThread {{
+                        if (nyala) window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                        else window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+                    }}
+                    result.success(null)
+                }} else {{
+                    result.notImplemented()
+                }}
+            }}
+    }}
+}}
+""")
+    print("MainActivity OK:", kt_path)
+else:
+    print("MainActivity tidak ditemukan")
+
 sys.exit(0)

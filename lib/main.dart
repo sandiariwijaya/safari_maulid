@@ -8,13 +8,15 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Alamat website. Semua isi diambil dari website ini (online),
 /// dan tersimpan otomatis di HP untuk dibuka saat offline.
 const String kWeb = 'https://safarimaulid.web.id/';
 const String kUa = 'SafariMaulidApp/1.4';
+
+/// Saluran ke Android untuk menahan layar tetap menyala (lihat tool/patch_android.py).
+const MethodChannel kLayar = MethodChannel('safarimaulid/layar');
 const List<String> kHostSendiri = ['safarimaulid.web.id', 'www.safarimaulid.web.id'];
 const String kYoutube = 'https://www.youtube.com/@AlHidayahMedia-85';
 const String kInstagram = 'https://www.instagram.com/safari_maulid/';
@@ -1288,12 +1290,12 @@ class _HalamanWebState extends State<HalamanWeb> {
     final kitab = (url?.path ?? '').contains('kitab.php');
     if (kitab == _layarMenyala) return;
     _layarMenyala = kitab;
-    WakelockPlus.toggle(enable: kitab).catchError((_) {});
+    kLayar.invokeMethod('nyala', kitab).catchError((_) {});
   }
 
   @override
   void dispose() {
-    if (_layarMenyala) WakelockPlus.disable().catchError((_) {});
+    if (_layarMenyala) kLayar.invokeMethod('nyala', false).catchError((_) {});
     super.dispose();
   }
   late final PullToRefreshController _tarik;
