@@ -245,36 +245,54 @@ class _HalamanUtamaState extends State<HalamanUtama> {
           padding: EdgeInsets.zero,
           children: [
             // ---------- kepala ----------
-            Container(
-              padding: EdgeInsets.fromLTRB(16, top + 10, 16, 12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [kMaroon2, kMaroon, kMaroonDeep], begin: Alignment.topLeft, end: Alignment.bottomRight),
-              ),
-              child: Row(children: [
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset('assets/logo.png', width: 50, height: 50, fit: BoxFit.cover),
+            MediaQuery.withClampedTextScaling(
+              maxScaleFactor: 1.15,
+              child: Container(
+                padding: EdgeInsets.fromLTRB(14, top + 8, 14, 10),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [kMaroon2, kMaroon, kMaroonDeep], begin: Alignment.topLeft, end: Alignment.bottomRight),
                 ),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Safari Maulid', maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, height: 1.1)),
-                    SizedBox(height: 2),
-                    Text('KARESIDENAN MADIUN', maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: TextStyle(color: kGold, fontSize: 9, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
+                child: Column(children: [
+                  Row(children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(10),
+                      child: Image.asset('assets/logo.png', width: 44, height: 44, fit: BoxFit.cover),
+                    ),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                        Text('Safari Maulid', maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.w800, height: 1.1)),
+                        SizedBox(height: 2),
+                        Text('KARESIDENAN MADIUN', maxLines: 1, overflow: TextOverflow.ellipsis,
+                            style: TextStyle(color: kGold, fontSize: 10, letterSpacing: 1.8, fontWeight: FontWeight.w700)),
+                      ]),
+                    ),
                   ]),
-                ),
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  Row(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    Text('${_dua(_wib.hour)}:${_dua(_wib.minute)}:${_dua(_wib.second)}',
-                        style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, height: 1, fontFeatures: [FontFeature.tabularFigures()])),
-                    const SizedBox(width: 3),
-                    const Text('WIB', style: TextStyle(color: kGold, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1)),
-                  ]),
-                  const SizedBox(height: 3),
-                  Text('${_hari[_wib.weekday - 1]}, ${_wib.day} ${_bulan[_wib.month - 1]} ${_wib.year}',
-                      style: const TextStyle(color: Color(0xFFF1DCD2), fontWeight: FontWeight.w600, fontSize: 11)),
+                  const SizedBox(height: 8),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.22),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: kGold.withValues(alpha: 0.3)),
+                    ),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                        Text('${_dua(_wib.hour)}:${_dua(_wib.minute)}:${_dua(_wib.second)}',
+                            style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1, fontFeatures: [FontFeature.tabularFigures()])),
+                        const SizedBox(width: 3),
+                        const Text('WIB', style: TextStyle(color: kGold, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1)),
+                        Container(width: 1, height: 16, margin: const EdgeInsets.symmetric(horizontal: 10), color: kGold.withValues(alpha: 0.5)),
+                        Text('${_hari[_wib.weekday - 1]}, ${_wib.day} ${_bulan[_wib.month - 1]} ${_wib.year}',
+                            style: const TextStyle(color: Color(0xFFF1DCD2), fontWeight: FontWeight.w600, fontSize: 13)),
+                      ]),
+                    ),
+                  ),
                 ]),
-              ]),
+              ),
             ),
 
             // ---------- tulisan berjalan: jadwal hari ini ----------
