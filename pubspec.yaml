@@ -1,0 +1,36 @@
+name: safarimaulid
+description: Aplikasi Safari Maulid Karesidenan Madiun - data diambil dari safarimaulid.web.id
+publish_to: 'none'
+
+# Nomor versi: 1.0.0 = versi tampil, +1 = versionCode.
+# Saat build di GitHub, versionCode otomatis diganti nomor build (selalu naik).
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.2.2
+  shared_preferences: ^2.3.2
+  cached_network_image: ^3.4.1
+  url_launcher: ^6.3.1
+  photo_view: ^0.15.0
+  google_fonts: ^6.2.1
+
+dev_dependencies:
+  flutter_launcher_icons: ^0.14.1
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: "assets/icon.png"
+  adaptive_icon_background: "#6B1010"
+  adaptive_icon_foreground: "assets/icon_fg.png"
+  min_sdk_android: 21
