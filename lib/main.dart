@@ -258,9 +258,9 @@ class _HalamanUtamaState extends State<HalamanUtama> {
                 const SizedBox(width: 10),
                 const Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('Safari Maulid', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w800, height: 1.1)),
+                    Text('Safari Maulid', maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, height: 1.1)),
                     SizedBox(height: 2),
-                    Text('KARESIDENAN MADIUN', style: TextStyle(color: kGold, fontSize: 10, letterSpacing: 2, fontWeight: FontWeight.w700)),
+                    Text('KARESIDENAN MADIUN', maxLines: 1, softWrap: false, overflow: TextOverflow.fade, style: TextStyle(color: kGold, fontSize: 9, letterSpacing: 1.2, fontWeight: FontWeight.w700)),
                   ]),
                 ),
                 Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -350,6 +350,13 @@ class _HalamanUtamaState extends State<HalamanUtama> {
                     ),
                   );
                 },
+              ),
+            ),
+            const Padding(
+              padding: EdgeInsets.only(top: 4),
+              child: Center(
+                child: Text('‹ geser untuk melihat kitab lainnya ›',
+                    style: TextStyle(color: kMuted, fontSize: 11.5, letterSpacing: .5)),
               ),
             ),
 
