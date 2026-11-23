@@ -510,38 +510,7 @@ class _HalamanUtamaState extends State<HalamanUtama> {
         case 'kitab':
           return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const _Judul('Kitab'),
-            SizedBox(
-              height: 44 * a.skalaHuruf,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                itemCount: kKitab.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (context, i) {
-                  final k = kKitab[i];
-                  return Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(22),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(22),
-                      onTap: () => bukaHalaman(context, 'kitab.php?k=${k.$1}', k.$2),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(22),
-                          border: Border.all(color: const Color(0xFFE8DCC6)),
-                        ),
-                        child: Row(mainAxisSize: MainAxisSize.min, children: [
-                          Icon(Icons.menu_book_rounded, color: t.utama, size: 18 * a.skalaIkon),
-                          const SizedBox(width: 6),
-                          Text(k.$2, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kInk)),
-                        ]),
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
+            _BarisKitab(tinggi: 44 * a.skalaHuruf),
             const Padding(
               padding: EdgeInsets.only(top: 4),
               child: Center(
@@ -605,6 +574,112 @@ class _HalamanUtamaState extends State<HalamanUtama> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Deretan tombol kitab yang bisa digeser, dengan panah kecil di kiri & kanan.
+class _BarisKitab extends StatefulWidget {
+  final double tinggi;
+  const _BarisKitab({required this.tinggi});
+  @override
+  State<_BarisKitab> createState() => _BarisKitabState();
+}
+
+class _BarisKitabState extends State<_BarisKitab> {
+  final _gulir = ScrollController();
+  bool _kiri = false, _kanan = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _gulir.addListener(_cek);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _cek());
+  }
+
+  void _cek() {
+    if (!_gulir.hasClients) return;
+    final p = _gulir.position;
+    final kiri = p.pixels > 2;
+    final kanan = p.pixels < p.maxScrollExtent - 2;
+    if (kiri != _kiri || kanan != _kanan) setState(() {
+      _kiri = kiri;
+      _kanan = kanan;
+    });
+  }
+
+  void _geser(int arah) {
+    if (!_gulir.hasClients) return;
+    final p = _gulir.position;
+    final tujuan = (p.pixels + arah * p.viewportDimension * 0.7).clamp(0.0, p.maxScrollExtent);
+    _gulir.animateTo(tujuan, duration: const Duration(milliseconds: 300), curve: Curves.easeOut);
+  }
+
+  @override
+  void dispose() {
+    _gulir.dispose();
+    super.dispose();
+  }
+
+  Widget _panah(IconData ikon, VoidCallback onTap, Color warna) {
+    return Material(
+      color: Colors.white,
+      shape: const CircleBorder(side: BorderSide(color: Color(0xFFE8DCC6))),
+      elevation: 2,
+      child: InkWell(
+        customBorder: const CircleBorder(),
+        onTap: onTap,
+        child: SizedBox(width: 28, height: 28, child: Icon(ikon, size: 20, color: warna)),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final a = Atur.i;
+    final t = a.tema;
+    return SizedBox(
+      height: widget.tinggi,
+      child: Stack(alignment: Alignment.center, children: [
+        NotificationListener<ScrollMetricsNotification>(
+          onNotification: (_) {
+            _cek();
+            return false;
+          },
+          child: ListView.separated(
+            controller: _gulir,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemCount: kKitab.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (context, i) {
+              final k = kKitab[i];
+              return Material(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(22),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: () => bukaHalaman(context, 'kitab.php?k=${k.$1}', k.$2),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(22),
+                      border: Border.all(color: const Color(0xFFE8DCC6)),
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(Icons.menu_book_rounded, color: t.utama, size: 18 * a.skalaIkon),
+                      const SizedBox(width: 6),
+                      Text(k.$2, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: kInk)),
+                    ]),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        if (_kiri) Positioned(left: 4, child: _panah(Icons.chevron_left_rounded, () => _geser(-1), t.utama)),
+        if (_kanan) Positioned(right: 4, child: _panah(Icons.chevron_right_rounded, () => _geser(1), t.utama)),
+      ]),
     );
   }
 }
