@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Alamat website. Semua isi diambil dari website ini (online),
@@ -1280,6 +1281,21 @@ class HalamanWeb extends StatefulWidget {
 
 class _HalamanWebState extends State<HalamanWeb> {
   InAppWebViewController? _web;
+  bool _layarMenyala = false;
+
+  /// Halaman kitab: layar HP dibuat tetap menyala (tidak mati otomatis).
+  void _aturLayar(WebUri? url) {
+    final kitab = (url?.path ?? '').contains('kitab.php');
+    if (kitab == _layarMenyala) return;
+    _layarMenyala = kitab;
+    WakelockPlus.toggle(enable: kitab).catchError((_) {});
+  }
+
+  @override
+  void dispose() {
+    if (_layarMenyala) WakelockPlus.disable().catchError((_) {});
+    super.dispose();
+  }
   late final PullToRefreshController _tarik;
   late String _judul = widget.judul;
   double _progres = 0;
@@ -1423,7 +1439,9 @@ class _HalamanWebState extends State<HalamanWeb> {
                 setState(() => _progres = p / 100);
                 if (p >= 100) _tarik.endRefreshing();
               },
+              onUpdateVisitedHistory: (c, url, isReload) => _aturLayar(url),
               onLoadStop: (c, url) {
+                _aturLayar(url);
                 _tarik.endRefreshing();
                 if (!_pertamaSelesai) setState(() => _pertamaSelesai = true);
               },
