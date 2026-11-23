@@ -13,7 +13,11 @@ Fitur aplikasi:
 - Link YouTube, Instagram, WhatsApp, Google Maps & telepon dibuka di aplikasinya masing-masing
 - Unduh foto / PDF lewat browser HP
 - Upload foto & kamera di panel admin tetap berfungsi (izin kamera diminta saat dipakai)
-- Layar "Tidak ada koneksi internet" + tombol Coba lagi saat offline
+- **Tetap bisa dibuka tanpa internet**: setiap kali online, aplikasi otomatis menyimpan
+  beranda, jadwal, kitab, galeri (foto kecil + 24 foto terbaru), sejarah, pengurus, legalitas
+  & panduan ke HP. Saat sinyal mati, data terakhir itu yang ditampilkan (muncul label
+  "Mode offline"). Panel admin tetap butuh internet.
+- Layar "Tidak ada koneksi" + tombol Coba lagi / Buka data tersimpan untuk halaman yang belum tersimpan
 
 ## Build APK lewat GitHub
 1. Upload semua isi zip ini ke repository GitHub (timpa file lama).

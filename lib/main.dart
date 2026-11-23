@@ -108,6 +108,12 @@ class _HalamanWebState extends State<HalamanWeb> {
     await _web?.loadUrl(urlRequest: URLRequest(url: url ?? WebUri(kUrl)));
   }
 
+  /// Buka beranda: saat offline, beranda diambil dari data yang tersimpan di HP
+  Future<void> _keBeranda() async {
+    setState(() => _error = null);
+    await _web?.loadUrl(urlRequest: URLRequest(url: WebUri(kUrl)));
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope(
@@ -135,7 +141,7 @@ class _HalamanWebState extends State<HalamanWeb> {
                 displayZoomControls: false,
                 cacheEnabled: true,
                 allowFileAccess: true,
-                applicationNameForUserAgent: 'SafariMaulidApp/1.1',
+                applicationNameForUserAgent: 'SafariMaulidApp/1.2',
               ),
               onWebViewCreated: (c) => _web = c,
               onProgressChanged: (c, p) {
@@ -193,7 +199,7 @@ class _HalamanWebState extends State<HalamanWeb> {
                 child: LinearProgressIndicator(value: _progres, minHeight: 3, color: kGold, backgroundColor: Colors.transparent),
               ),
             if (!_pertamaSelesai) const _LayarMuat(),
-            if (_error != null) _LayarOffline(pesan: _error!, onCobaLagi: _cobaLagi),
+            if (_error != null) _LayarOffline(pesan: _error!, onCobaLagi: _cobaLagi, onBeranda: _keBeranda),
           ]),
         ),
       ),
@@ -226,7 +232,8 @@ class _LayarMuat extends StatelessWidget {
 class _LayarOffline extends StatelessWidget {
   final String pesan;
   final VoidCallback onCobaLagi;
-  const _LayarOffline({required this.pesan, required this.onCobaLagi});
+  final VoidCallback onBeranda;
+  const _LayarOffline({required this.pesan, required this.onCobaLagi, required this.onBeranda});
 
   @override
   Widget build(BuildContext context) {
@@ -242,7 +249,9 @@ class _LayarOffline extends StatelessWidget {
           const Text('Tidak ada koneksi internet',
               textAlign: TextAlign.center, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: kMaroon)),
           const SizedBox(height: 6),
-          const Text('Aplikasi Safari Maulid membutuhkan internet untuk menampilkan jadwal, kitab, dan galeri terbaru.',
+          const Text(
+              'Halaman ini belum tersimpan di HP. Beranda, jadwal, kitab, galeri, sejarah, pengurus, legalitas & panduan '
+              'tetap bisa dibuka dari data yang tersimpan saat terakhir online.',
               textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF85745F), height: 1.4)),
           const SizedBox(height: 20),
           FilledButton.icon(
@@ -250,6 +259,13 @@ class _LayarOffline extends StatelessWidget {
             onPressed: onCobaLagi,
             icon: const Icon(Icons.refresh),
             label: const Text('Coba lagi'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(foregroundColor: kMaroon, padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12)),
+            onPressed: onBeranda,
+            icon: const Icon(Icons.offline_pin_outlined),
+            label: const Text('Buka data tersimpan'),
           ),
           const SizedBox(height: 10),
           Text(pesan, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Color(0xFFB0A391))),
