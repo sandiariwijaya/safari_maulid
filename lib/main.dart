@@ -237,7 +237,6 @@ const List<Menu> kMenu = [
   Menu(Icons.groups_rounded, 'Pengurus', 'struktur.php'),
   Menu(Icons.verified_rounded, 'Legalitas', 'legalitas.php'),
   Menu(Icons.auto_stories_rounded, 'Panduan', 'panduan.php'),
-  Menu(Icons.login_rounded, 'Login', 'admin/login.php'),
 ];
 
 const List<(String, String, String)> kKitab = [
@@ -418,6 +417,11 @@ class _HalamanUtamaState extends State<HalamanUtama> {
                 Text('KARESIDENAN MADIUN', maxLines: 1, overflow: TextOverflow.ellipsis,
                     style: TextStyle(color: t.aksen, fontSize: 10, letterSpacing: 1.8, fontWeight: FontWeight.w700)),
               ]),
+            ),
+            IconButton(
+              tooltip: 'Login admin',
+              icon: const Icon(Icons.login_rounded, color: Colors.white),
+              onPressed: () => bukaHalaman(context, 'admin/login.php', 'Login'),
             ),
             IconButton(
               tooltip: 'Pengaturan',
