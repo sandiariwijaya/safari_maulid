@@ -1,5 +1,9 @@
 # Aplikasi Android Safari Maulid (versi online)
 
+**Versi 1.3:** halaman depan berisi menu utama (Beranda, Jadwal, Kitab, Galeri, Sejarah,
+Pengurus, Legalitas, Panduan, **Login**), jam WIB & tanggal, pilihan 7 kitab, serta tombol
+YouTube, Instagram & Website. Ikon aplikasi di layar HP dibuat lebih besar.
+
 Aplikasi ini **membuka website https://safarimaulid.web.id secara langsung (online)**,
 jadi semua isinya **selalu sama dengan website**: beranda, jadwal, kitab Rotib & Simtudduror
 (termasuk gulir otomatis ▾ ▾▾ ▾▾▾ dan ketuk layar untuk mulai/berhenti), galeri, sejarah,
