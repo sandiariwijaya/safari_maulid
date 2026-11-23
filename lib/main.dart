@@ -9,6 +9,7 @@ import 'package:url_launcher/url_launcher.dart';
 /// Alamat website. Semua isi diambil dari website ini (online),
 /// dan tersimpan otomatis di HP untuk dibuka saat offline.
 const String kWeb = 'https://safarimaulid.web.id/';
+const String kUa = 'SafariMaulidApp/1.4';
 const List<String> kHostSendiri = ['safarimaulid.web.id', 'www.safarimaulid.web.id'];
 const String kYoutube = 'https://www.youtube.com/@AlHidayahMedia-85';
 const String kInstagram = 'https://www.instagram.com/safari_maulid/';
@@ -67,7 +68,6 @@ class Menu {
 }
 
 const List<Menu> kMenu = [
-  Menu(Icons.home_rounded, 'Beranda', 'index.php'),
   Menu(Icons.event_note_rounded, 'Jadwal', 'jadwal.php'),
   Menu(Icons.menu_book_rounded, 'Kitab', 'kitab.php'),
   Menu(Icons.photo_library_rounded, 'Galeri', 'gallery.php'),
@@ -111,17 +111,43 @@ class _HalamanUtamaState extends State<HalamanUtama> {
 
   static DateTime _sekarangWib() => DateTime.now().toUtc().add(const Duration(hours: 7));
 
+  HeadlessInAppWebView? _sinkron;
+
   @override
   void initState() {
     super.initState();
     _t = Timer.periodic(const Duration(seconds: 1), (_) {
       if (mounted) setState(() => _wib = _sekarangWib());
     });
+    _mulaiSinkron();
+  }
+
+  /// Saat aplikasi dibuka: diam-diam menyamakan data tersimpan di HP dengan web,
+  /// sehingga halaman berikutnya langsung terbuka dari HP (cepat & tetap bisa offline).
+  void _mulaiSinkron() {
+    try {
+      _sinkron = HeadlessInAppWebView(
+        initialUrlRequest: URLRequest(url: WebUri('${kWeb}index.php?sinkron=1')),
+        initialSettings: InAppWebViewSettings(
+          javaScriptEnabled: true,
+          domStorageEnabled: true,
+          databaseEnabled: true,
+          cacheEnabled: true,
+          applicationNameForUserAgent: kUa,
+        ),
+      );
+      _sinkron!.run();
+      Future.delayed(const Duration(minutes: 3), () {
+        _sinkron?.dispose();
+        _sinkron = null;
+      });
+    } catch (_) {}
   }
 
   @override
   void dispose() {
     _t?.cancel();
+    _sinkron?.dispose();
     super.dispose();
   }
 
@@ -382,7 +408,7 @@ class _HalamanWebState extends State<HalamanWeb> {
     _tarik = PullToRefreshController(
       settings: PullToRefreshSettings(color: kMaroon),
       onRefresh: () async {
-        await _web?.reload();
+        await _segarkan();
       },
     );
   }
@@ -426,6 +452,15 @@ class _HalamanWebState extends State<HalamanWeb> {
     await _web?.loadUrl(urlRequest: URLRequest(url: url ?? WebUri(widget.alamat)));
   }
 
+  /// Ambil versi terbaru langsung dari web (melewati data tersimpan di HP).
+  Future<void> _segarkan() async {
+    final now = await _web?.getUrl();
+    if (now == null) return;
+    final u = Uri.parse(now.toString());
+    final q = Map<String, String>.from(u.queryParameters)..['segar'] = '1';
+    await _web?.loadUrl(urlRequest: URLRequest(url: WebUri(u.replace(queryParameters: q).toString())));
+  }
+
   Future<void> _keAwal() async {
     setState(() => _error = null);
     await _web?.loadUrl(urlRequest: URLRequest(url: WebUri(kWeb)));
@@ -451,7 +486,7 @@ class _HalamanWebState extends State<HalamanWeb> {
           leading: IconButton(icon: const Icon(Icons.arrow_back), onPressed: _kembali, tooltip: 'Kembali'),
           title: Text(_judul, maxLines: 1, overflow: TextOverflow.ellipsis),
           actions: [
-            IconButton(icon: const Icon(Icons.refresh), tooltip: 'Muat ulang', onPressed: () => _web?.reload()),
+            IconButton(icon: const Icon(Icons.refresh), tooltip: 'Muat ulang', onPressed: _segarkan),
             IconButton(
               icon: const Icon(Icons.grid_view_rounded),
               tooltip: 'Menu utama',
@@ -484,7 +519,7 @@ class _HalamanWebState extends State<HalamanWeb> {
                 displayZoomControls: false,
                 cacheEnabled: true,
                 allowFileAccess: true,
-                applicationNameForUserAgent: 'SafariMaulidApp/1.3',
+                applicationNameForUserAgent: kUa,
               ),
               onWebViewCreated: (c) => _web = c,
               onTitleChanged: (c, t) {
