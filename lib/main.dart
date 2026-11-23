@@ -1,21 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:url_launcher/url_launcher.dart';
 
-import 'api.dart';
-import 'pages/beranda.dart';
-import 'pages/galeri.dart';
-import 'pages/jadwal.dart';
-import 'pages/kitab.dart';
-import 'pages/lainnya.dart';
-import 'util.dart';
+/// Alamat website. Aplikasi selalu online & membuka website ini,
+/// jadi semua isi (jadwal, kitab, galeri, dll) sama persis dengan web.
+const String kUrl = 'https://safarimaulid.web.id/';
+const List<String> kHostSendiri = ['safarimaulid.web.id', 'www.safarimaulid.web.id'];
+
+const Color kMaroon = Color(0xFF6B1010);
+const Color kMaroonDeep = Color(0xFF3A0707);
+const Color kGold = Color(0xFFE3C77D);
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
+    statusBarColor: kMaroonDeep,
     statusBarIconBrightness: Brightness.light,
+    systemNavigationBarColor: kMaroonDeep,
+    systemNavigationBarIconBrightness: Brightness.light,
   ));
-  Data.i.muatAwal();
   runApp(const SafariMaulidApp());
 }
 
@@ -24,69 +29,231 @@ class SafariMaulidApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final skema = ColorScheme.fromSeed(seedColor: kMaroon, primary: kMaroon, secondary: kGold, surface: Colors.white);
     return MaterialApp(
       title: 'Safari Maulid',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: skema,
-        scaffoldBackgroundColor: kCream,
-        appBarTheme: const AppBarTheme(
-          backgroundColor: kMaroon,
-          foregroundColor: Colors.white,
-          centerTitle: false,
-          titleTextStyle: TextStyle(fontSize: 19, fontWeight: FontWeight.w700, color: Colors.white),
-        ),
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: Colors.white,
-          indicatorColor: kGoldSoft,
-          labelTextStyle: WidgetStateProperty.all(const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-        ),
-      ),
-      home: const Kerangka(),
+      theme: ThemeData(useMaterial3: true, colorScheme: ColorScheme.fromSeed(seedColor: kMaroon, primary: kMaroon)),
+      home: const HalamanWeb(),
     );
   }
 }
 
-class Kerangka extends StatefulWidget {
-  const Kerangka({super.key});
+class HalamanWeb extends StatefulWidget {
+  const HalamanWeb({super.key});
   @override
-  State<Kerangka> createState() => _KerangkaState();
+  State<HalamanWeb> createState() => _HalamanWebState();
 }
 
-class _KerangkaState extends State<Kerangka> {
-  int _tab = 0;
+class _HalamanWebState extends State<HalamanWeb> {
+  InAppWebViewController? _web;
+  late final PullToRefreshController _tarik;
+  double _progres = 0;
+  bool _pertamaSelesai = false;
+  String? _error;
+  DateTime? _terakhirKembali;
 
-  void pindahTab(int i) => setState(() => _tab = i);
+  @override
+  void initState() {
+    super.initState();
+    _tarik = PullToRefreshController(
+      settings: PullToRefreshSettings(color: kMaroon),
+      onRefresh: () async {
+        await _web?.reload();
+      },
+    );
+  }
+
+  bool _hostSendiri(Uri? u) => u != null && kHostSendiri.contains(u.host.toLowerCase());
+
+  Future<void> _bukaLuar(Uri u) async {
+    try {
+      final ok = await launchUrl(u, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) _pesan('Tidak ada aplikasi untuk membuka tautan ini.');
+    } catch (_) {
+      if (mounted) _pesan('Tidak dapat membuka tautan.');
+    }
+  }
+
+  void _pesan(String t) {
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(t), behavior: SnackBarBehavior.floating, backgroundColor: kMaroonDeep));
+  }
+
+  Future<void> _kembali() async {
+    final web = _web;
+    if (_error != null) {
+      setState(() => _error = null);
+      return;
+    }
+    if (web != null && await web.canGoBack()) {
+      await web.goBack();
+      return;
+    }
+    final now = DateTime.now();
+    if (_terakhirKembali == null || now.difference(_terakhirKembali!) > const Duration(seconds: 2)) {
+      _terakhirKembali = now;
+      _pesan('Tekan sekali lagi untuk keluar');
+      return;
+    }
+    await SystemNavigator.pop();
+  }
+
+  Future<void> _cobaLagi() async {
+    setState(() {
+      _error = null;
+      _progres = 0;
+    });
+    final url = await _web?.getUrl();
+    await _web?.loadUrl(urlRequest: URLRequest(url: url ?? WebUri(kUrl)));
+  }
 
   @override
   Widget build(BuildContext context) {
-    final halaman = [
-      HalamanBeranda(keTab: pindahTab),
-      const HalamanJadwal(),
-      const HalamanKitab(),
-      const HalamanGaleri(),
-      const HalamanLainnya(),
-    ];
     return PopScope(
-      canPop: _tab == 0,
+      canPop: false,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop) setState(() => _tab = 0);
+        if (!didPop) _kembali();
       },
       child: Scaffold(
-        body: IndexedStack(index: _tab, children: halaman),
-        bottomNavigationBar: NavigationBar(
-          selectedIndex: _tab,
-          onDestinationSelected: pindahTab,
-          destinations: const [
-            NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: kMaroon), label: 'Beranda'),
-            NavigationDestination(icon: Icon(Icons.event_note_outlined), selectedIcon: Icon(Icons.event_note, color: kMaroon), label: 'Jadwal'),
-            NavigationDestination(icon: Icon(Icons.menu_book_outlined), selectedIcon: Icon(Icons.menu_book, color: kMaroon), label: 'Kitab'),
-            NavigationDestination(icon: Icon(Icons.photo_library_outlined), selectedIcon: Icon(Icons.photo_library, color: kMaroon), label: 'Galeri'),
-            NavigationDestination(icon: Icon(Icons.grid_view_outlined), selectedIcon: Icon(Icons.grid_view, color: kMaroon), label: 'Lainnya'),
-          ],
+        backgroundColor: kMaroonDeep,
+        body: SafeArea(
+          child: Stack(children: [
+            InAppWebView(
+              initialUrlRequest: URLRequest(url: WebUri(kUrl)),
+              pullToRefreshController: _tarik,
+              initialSettings: InAppWebViewSettings(
+                javaScriptEnabled: true,
+                domStorageEnabled: true,
+                databaseEnabled: true,
+                useShouldOverrideUrlLoading: true,
+                useOnDownloadStart: true,
+                mediaPlaybackRequiresUserGesture: false,
+                allowsInlineMediaPlayback: true,
+                supportZoom: false,
+                builtInZoomControls: false,
+                displayZoomControls: false,
+                cacheEnabled: true,
+                allowFileAccess: true,
+                applicationNameForUserAgent: 'SafariMaulidApp/1.1',
+              ),
+              onWebViewCreated: (c) => _web = c,
+              onProgressChanged: (c, p) {
+                setState(() => _progres = p / 100);
+                if (p >= 100) _tarik.endRefreshing();
+              },
+              onLoadStop: (c, url) {
+                _tarik.endRefreshing();
+                if (!_pertamaSelesai) setState(() => _pertamaSelesai = true);
+              },
+              onReceivedError: (c, request, error) {
+                _tarik.endRefreshing();
+                if (request.isForMainFrame == false) return;
+                if (error.type == WebResourceErrorType.CANCELLED) return;
+                setState(() {
+                  _pertamaSelesai = true;
+                  _error = error.description;
+                });
+              },
+              shouldOverrideUrlLoading: (c, aksi) async {
+                final u = aksi.request.url;
+                if (u == null) return NavigationActionPolicy.ALLOW;
+                final skema = u.scheme.toLowerCase();
+                if (skema == 'about' || skema == 'data' || skema == 'javascript' || skema == 'blob') {
+                  return NavigationActionPolicy.ALLOW;
+                }
+                if ((skema == 'http' || skema == 'https') && _hostSendiri(u)) {
+                  return NavigationActionPolicy.ALLOW;
+                }
+                // YouTube, Instagram, WhatsApp, Google Maps, telepon, dll -> buka di aplikasinya
+                await _bukaLuar(u);
+                return NavigationActionPolicy.CANCEL;
+              },
+              onDownloadStartRequest: (c, req) async {
+                // Foto / PDF diunduh lewat browser HP
+                await _bukaLuar(req.url);
+              },
+              onPermissionRequest: (c, req) async {
+                // Kamera untuk upload foto dari panel admin
+                final butuhKamera = req.resources.contains(PermissionResourceType.CAMERA);
+                if (butuhKamera) {
+                  final st = await Permission.camera.request();
+                  if (!st.isGranted) {
+                    return PermissionResponse(resources: req.resources, action: PermissionResponseAction.DENY);
+                  }
+                }
+                return PermissionResponse(resources: req.resources, action: PermissionResponseAction.GRANT);
+              },
+            ),
+            if (_progres < 1 && _pertamaSelesai && _error == null)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: LinearProgressIndicator(value: _progres, minHeight: 3, color: kGold, backgroundColor: Colors.transparent),
+              ),
+            if (!_pertamaSelesai) const _LayarMuat(),
+            if (_error != null) _LayarOffline(pesan: _error!, onCobaLagi: _cobaLagi),
+          ]),
         ),
+      ),
+    );
+  }
+}
+
+class _LayarMuat extends StatelessWidget {
+  const _LayarMuat();
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(colors: [kMaroon, kMaroonDeep], begin: Alignment.topCenter, end: Alignment.bottomCenter),
+      ),
+      child: const Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Image(image: AssetImage('assets/logo.png'), width: 110),
+          SizedBox(height: 16),
+          Text('Safari Maulid', style: TextStyle(color: Colors.white, fontSize: 26, fontWeight: FontWeight.w800)),
+          Text('KARESIDENAN MADIUN', style: TextStyle(color: kGold, fontSize: 12, letterSpacing: 3, fontWeight: FontWeight.w700)),
+          SizedBox(height: 28),
+          SizedBox(width: 26, height: 26, child: CircularProgressIndicator(color: kGold, strokeWidth: 3)),
+        ]),
+      ),
+    );
+  }
+}
+
+class _LayarOffline extends StatelessWidget {
+  final String pesan;
+  final VoidCallback onCobaLagi;
+  const _LayarOffline({required this.pesan, required this.onCobaLagi});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      color: const Color(0xFFFBF7EF),
+      padding: const EdgeInsets.all(28),
+      child: Center(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Image(image: AssetImage('assets/logo.png'), width: 84),
+          const SizedBox(height: 18),
+          const Icon(Icons.wifi_off_rounded, size: 46, color: kMaroon),
+          const SizedBox(height: 10),
+          const Text('Tidak ada koneksi internet',
+              textAlign: TextAlign.center, style: TextStyle(fontSize: 19, fontWeight: FontWeight.w800, color: kMaroon)),
+          const SizedBox(height: 6),
+          const Text('Aplikasi Safari Maulid membutuhkan internet untuk menampilkan jadwal, kitab, dan galeri terbaru.',
+              textAlign: TextAlign.center, style: TextStyle(color: Color(0xFF85745F), height: 1.4)),
+          const SizedBox(height: 20),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(backgroundColor: kMaroon, padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14)),
+            onPressed: onCobaLagi,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Coba lagi'),
+          ),
+          const SizedBox(height: 10),
+          Text(pesan, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, color: Color(0xFFB0A391))),
+        ]),
       ),
     );
   }

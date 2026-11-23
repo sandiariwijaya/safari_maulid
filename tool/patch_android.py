@@ -11,8 +11,13 @@ TARGET_SDK = "35"
 man_path = "android/app/src/main/AndroidManifest.xml"
 man = open(man_path, encoding="utf-8").read()
 man = re.sub(r'android:label="[^"]*"', f'android:label="{NAMA_APP}"', man, count=1)
-if "android.permission.INTERNET" not in man:
-    man = re.sub(r"(<manifest[^>]*>)", r'\1\n    <uses-permission android:name="android.permission.INTERNET"/>', man, count=1)
+IZIN = """
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature android:name="android.hardware.camera" android:required="false"/>"""
+if "android.permission.CAMERA" not in man:
+    man = re.sub(r"(<manifest[^>]*>)", lambda m: m.group(1) + IZIN, man, count=1)
 intents = """
         <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
         <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="http" /></intent>
